@@ -57,10 +57,10 @@ def create_transformers(
         numeric_transformer = Pipeline(steps=[
             ('scaler', MinMaxScaler(feature_range=(0, 1)))
         ])
-        transformers.append(('num', numeric_transformer, numeric_cols))
     else:
         numeric_transformer = 'passthrough'
-        transformers.append(('num', numeric_transformer, numeric_cols))
+    
+    transformers.append(('num', numeric_transformer, numeric_cols))
     
     categorical_transformer = Pipeline(steps=[
         ('onehot', OneHotEncoder(sparse_output=False, handle_unknown='ignore'))
@@ -69,6 +69,27 @@ def create_transformers(
     
     preprocessor = ColumnTransformer(transformers=transformers)
     return preprocessor
+
+def get_feature_names(preprocessor: ColumnTransformer) -> List[str]:
+    """
+    Get the feature names after transformation.
+    
+    Args:
+        preprocessor (ColumnTransformer): The preprocessor.
+        
+    Returns:
+        List[str]: The feature names.
+    """
+    feature_names = []
+    for name, transformer, columns in preprocessor.transformers_:
+        if name == 'num' and transformer != 'passthrough':
+            feature_names += columns
+        elif name == 'cat':
+            encoder = transformer.named_steps['onehot']
+            feature_names += encoder.get_feature_names_out(columns).tolist()
+        elif name == 'num' and transformer == 'passthrough':
+            feature_names += columns  # add original column names for passthrough
+    return feature_names
 
 def preprocess_data(
     raw_df: pd.DataFrame, 
@@ -104,16 +125,22 @@ def preprocess_data(
     X_train = preprocessor.fit_transform(train_data['inputs'])
     X_val = preprocessor.transform(val_data['inputs'])
     
+    # Get feature names for the resulting dataframe
+    feature_names = get_feature_names(preprocessor)
+
+    X_train_df = pd.DataFrame(X_train, columns=feature_names, index=train_data['inputs'].index)
+    X_val_df = pd.DataFrame(X_val, columns=feature_names, index=val_data['inputs'].index)
+    
     return {
-        'X_train': X_train,
+        'X_train': X_train_df,
         'train_targets': train_data['targets'],
-        'X_val': X_val,
+        'X_val': X_val_df,
         'val_targets': val_data['targets'],
         'preprocessor': preprocessor,
-        'input_cols': train_data['input_cols']
+        'input_cols': feature_names
     }
 
-def preprocess_new_data(df: pd.DataFrame, preprocessor: ColumnTransformer) -> np.ndarray:
+def preprocess_new_data(df: pd.DataFrame, preprocessor: ColumnTransformer) -> pd.DataFrame:
     """
     Preprocess new data using the fitted preprocessor.
     
@@ -122,6 +149,11 @@ def preprocess_new_data(df: pd.DataFrame, preprocessor: ColumnTransformer) -> np
         preprocessor (ColumnTransformer): The fitted preprocessor.
         
     Returns:
-        np.ndarray: The transformed data.
+        pd.DataFrame: The transformed data as a DataFrame.
     """
-    return preprocessor.transform(df)
+    transformed_data = preprocessor.transform(df)
+    
+    # Get feature names for the resulting dataframe
+    feature_names = get_feature_names(preprocessor)
+    
+    return pd.DataFrame(transformed_data, columns=feature_names, index=df.index)
