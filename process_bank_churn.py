@@ -58,6 +58,9 @@ def create_transformers(
             ('scaler', MinMaxScaler(feature_range=(0, 1)))
         ])
         transformers.append(('num', numeric_transformer, numeric_cols))
+    else:
+        numeric_transformer = 'passthrough'
+        transformers.append(('num', numeric_transformer, numeric_cols))
     
     categorical_transformer = Pipeline(steps=[
         ('onehot', OneHotEncoder(sparse_output=False, handle_unknown='ignore'))
