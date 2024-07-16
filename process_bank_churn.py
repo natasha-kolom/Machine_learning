@@ -34,7 +34,7 @@ def get_input_output(df: pd.DataFrame, target_col: str) -> Dict[str, pd.DataFram
     input_cols = [col for col in df.columns if col != target_col]
     inputs = df[input_cols].copy()
     targets = df[target_col].copy()
-    return {'inputs': inputs, 'targets': targets}
+    return {'inputs': inputs, 'targets': targets, 'input_cols': input_cols}
 
 def create_transformers(
     numeric_cols: List[str], 
@@ -106,7 +106,8 @@ def preprocess_data(
         'train_targets': train_data['targets'],
         'X_val': X_val,
         'val_targets': val_data['targets'],
-        'preprocessor': preprocessor
+        'preprocessor': preprocessor,
+        'input_cols': train_data['input_cols']
     }
 
 def preprocess_new_data(df: pd.DataFrame, preprocessor: ColumnTransformer) -> np.ndarray:
